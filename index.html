@@ -230,40 +230,24 @@
 
     .choose-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-      gap: 0.4rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
       margin-bottom: 0.6rem;
     }
     .choose-arrow-btn {
-      padding: 12px 4px;
+      padding: 14px 8px;
       background: linear-gradient(135deg, var(--orange), #ff7a30);
       color: white;
       border: none;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       font-family: inherit;
-      line-height: 1.3;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.1s;
     }
     .choose-arrow-btn:hover { opacity: 0.9; }
     .choose-arrow-btn:active { transform: scale(0.97); }
-
-    .choose-arrow-btn-light {
-      padding: 12px 4px;
-      background: transparent;
-      border: 1px solid var(--orange);
-      color: var(--orange);
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s, transform 0.1s;
-    }
-    .choose-arrow-btn-light:hover { background: var(--orange); color: white; }
-    .choose-arrow-btn-light:active { transform: scale(0.97); }
 
     .both-like-btn {
       display: block;
@@ -435,8 +419,8 @@
       .idol-name-en { font-size: 10px; }
       .vs-badge { width: 34px; height: 34px; font-size: 11px; }
 
-      .choose-row { gap: 0.3rem; }
-      .choose-arrow-btn, .choose-arrow-btn-light { padding: 10px 2px; font-size: 11px; }
+      .choose-row { gap: 0.5rem; }
+      .choose-arrow-btn { padding: 12px 6px; font-size: 13px; }
       .both-like-btn, .skip-btn { padding: 11px; font-size: 12px; }
       .filter-btn { padding: 10px 16px; font-size: 13px; }
       .start-btn, .restart-btn { padding: 15px; }
@@ -503,10 +487,8 @@
     </div>
 
     <div class="choose-row">
-      <button class="choose-arrow-btn" onclick="choose(0, event, 3)">めっちゃ<br>好き</button>
-      <button class="choose-arrow-btn-light" onclick="choose(0, event, 1)">好き</button>
-      <button class="choose-arrow-btn-light" onclick="choose(1, event, 1)">好き</button>
-      <button class="choose-arrow-btn" onclick="choose(1, event, 3)">めっちゃ<br>好き</button>
+      <button class="choose-arrow-btn" onclick="choose(0, event)">← 好き</button>
+      <button class="choose-arrow-btn" onclick="choose(1, event)">好き →</button>
     </div>
 
     <button class="both-like-btn" onclick="skip()">😭 どっちも好きで選べない</button>
@@ -591,7 +573,8 @@ const ALL_IDOLS = [
 ];
 
 let idols = [];
-let scores = {};
+let wins = {};
+let appearances = {};
 let comparisons = [];
 let currentIdx = 0;
 let totalComparisons = 0;
@@ -620,11 +603,26 @@ function buildComparisons(list) {
   return pairs.slice(0, needed);
 }
 
+function rate(i) {
+  const a = appearances[i] || 0;
+  return a === 0 ? 0 : (wins[i] || 0) / a;
+}
+
+// 勝率優先、同率なら勝ち数、それも同じなら対戦数が多い方を上位にする
+function compareIdols(a, b) {
+  const byRate = rate(b) - rate(a);
+  if (byRate !== 0) return byRate;
+  const byWins = wins[b] - wins[a];
+  if (byWins !== 0) return byWins;
+  return appearances[b] - appearances[a];
+}
+
 function initGame() {
   idols = ALL_IDOLS.filter(x => selectedGroups.has(x.group));
 
-  scores = {};
-  idols.forEach((_, i) => { scores[i] = 0; });
+  wins = {};
+  appearances = {};
+  idols.forEach((_, i) => { wins[i] = 0; appearances[i] = 0; });
   comparisons = buildComparisons(idols);
   currentIdx = 0;
   totalComparisons = comparisons.length;
@@ -666,11 +664,14 @@ function setCard(side, idol) {
   document.getElementById("nameEn" + side).textContent = idol.nameEn;
 }
 
-function choose(side, event, intensity = 3) {
+function choose(side, event) {
   const [a, b] = comparisons[currentIdx];
   const winner = side === 0 ? a : b;
-  scores[winner] += intensity;
-  history.push({ idx: currentIdx, winner, amount: intensity });
+  const loser = side === 0 ? b : a;
+  wins[winner]++;
+  appearances[winner]++;
+  appearances[loser]++;
+  history.push({ idx: currentIdx, winner, loser });
   currentIdx++;
   updateUndoButtons();
 
@@ -698,8 +699,8 @@ function advance() {
 
 // 通常の対決リストを使い切った時点で9位の境界が同点の場合、安易に確定させず追加対決を挟む
 function tryConclude() {
-  const totalScore = idols.reduce((sum, _, i) => sum + (scores[i] || 0), 0);
-  if (totalScore === 0) {
+  const totalAppearances = idols.reduce((sum, _, i) => sum + (appearances[i] || 0), 0);
+  if (totalAppearances === 0) {
     showTieResult();
     return;
   }
@@ -718,8 +719,8 @@ function tryConclude() {
       showTieResult();
       return;
     }
-    const sortedIdx = Object.keys(scores).map(Number).sort((a, b) => scores[b] - scores[a]);
-    const decidedIdx = sortedIdx.slice(0, ambiguous.countAbove);
+    const ranked = idols.map((_, i) => i).sort(compareIdols);
+    const decidedIdx = ranked.slice(0, ambiguous.countAbove);
     showResult(decidedIdx);
     return;
   }
@@ -727,12 +728,12 @@ function tryConclude() {
   showResult();
 }
 
-// 9位とその次点が同点で、9位までの顔ぶれを一意に決められないかどうかを調べる
+// 9位とその次点が同率で、9位までの顔ぶれを一意に決められないかどうかを調べる
 function findAmbiguousTie() {
-  const sortedIdx = Object.keys(scores).map(Number).sort((a, b) => scores[b] - scores[a]);
-  const boundaryScore = scores[sortedIdx[8]];
-  const countAbove = sortedIdx.filter(i => scores[i] > boundaryScore).length;
-  const tied = sortedIdx.filter(i => scores[i] === boundaryScore);
+  const ranked = idols.map((_, i) => i).sort(compareIdols);
+  const boundaryRate = rate(ranked[8]);
+  const countAbove = ranked.filter(i => rate(i) > boundaryRate).length;
+  const tied = ranked.filter(i => rate(i) === boundaryRate);
   const slotsNeeded = 9 - countAbove;
 
   if (tied.length <= slotsNeeded) return null;
@@ -757,7 +758,11 @@ function undo() {
     pendingAdvanceTimer = null;
   }
   const last = history.pop();
-  if (last.winner !== null) scores[last.winner] -= last.amount;
+  if (last.winner !== null) {
+    wins[last.winner]--;
+    appearances[last.winner]--;
+    appearances[last.loser]--;
+  }
   currentIdx = last.idx;
   updateUndoButtons();
 
@@ -785,17 +790,24 @@ function isTop9Locked() {
     remainingCount[b]++;
   });
 
-  const ranked = Object.keys(scores)
-    .map(i => parseInt(i))
-    .sort((x, y) => scores[y] - scores[x]);
+  // 残り全部に勝った場合の最良勝率／全部負けた場合の最悪勝率
+  const bestRate = i => {
+    const a = appearances[i] + remainingCount[i];
+    return a === 0 ? 0 : (wins[i] + remainingCount[i]) / a;
+  };
+  const worstRate = i => {
+    const a = appearances[i] + remainingCount[i];
+    return a === 0 ? 0 : wins[i] / a;
+  };
 
+  const ranked = idols.map((_, i) => i).sort(compareIdols);
   const top9 = ranked.slice(0, 9);
   const rest = ranked.slice(9);
 
-  const minTop9Score = Math.min(...top9.map(i => scores[i]));
-  const maxRestPotential = Math.max(...rest.map(i => scores[i] + 3 * remainingCount[i]));
+  const minTop9WorstRate = Math.min(...top9.map(worstRate));
+  const maxRestBestRate = Math.max(...rest.map(bestRate));
 
-  return maxRestPotential < minTop9Score;
+  return maxRestBestRate < minTop9WorstRate;
 }
 
 function spawnHeart(e) {
@@ -811,8 +823,8 @@ function spawnHeart(e) {
 }
 
 function showResult(decidedIdx) {
-  const totalScore = idols.reduce((sum, _, i) => sum + (scores[i] || 0), 0);
-  if (totalScore === 0) {
+  const totalAppearances = idols.reduce((sum, _, i) => sum + (appearances[i] || 0), 0);
+  if (totalAppearances === 0) {
     showTieResult();
     return;
   }
@@ -820,12 +832,8 @@ function showResult(decidedIdx) {
   document.getElementById("battleScreen").classList.add("hidden");
   document.getElementById("resultScreen").classList.add("active");
 
-  const ranked = decidedIdx
-    ? decidedIdx.map(i => ({ ...idols[i], score: scores[i] }))
-    : Object.entries(scores)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 9)
-        .map(([i, score]) => ({ ...idols[parseInt(i)], score }));
+  const idx = decidedIdx || idols.map((_, i) => i).sort(compareIdols).slice(0, 9);
+  const ranked = idx.map(i => ({ ...idols[i], wins: wins[i], appearances: appearances[i] }));
   lastRanked = ranked;
 
   const count = ranked.length;
