@@ -352,6 +352,18 @@
     .result-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem; }
     .result-subtitle { font-size: 14px; color: var(--text-secondary); }
 
+    .tie-emoji {
+      text-align: center;
+      font-size: 48px;
+      margin: 2.5rem 0;
+      animation: tie-wobble 1.4s ease-in-out infinite;
+    }
+    @keyframes tie-wobble {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.08) rotate(-4deg); }
+      75% { transform: scale(1.08) rotate(4deg); }
+    }
+
     .nine-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -505,8 +517,8 @@
   <div class="result-screen" id="resultScreen">
     <div class="result-header">
       <div class="header-badge">診断結果</div>
-      <div class="result-title">あなたの好き顔9選 ✦</div>
-      <div class="result-subtitle">対決を勝ち抜いたメンバーたちです</div>
+      <div class="result-title" id="resultTitle">あなたの好き顔9選 ✦</div>
+      <div class="result-subtitle" id="resultSubtitle">対決を勝ち抜いたメンバーたちです</div>
     </div>
 
     <p class="nine-hint">写真をタップすると公式プロフィールページが開きます</p>
@@ -516,6 +528,21 @@
       <button class="restart-btn" onclick="restart()">もう一度診断する</button>
       <button class="share-btn" id="shareBtn" onclick="tweetResult()">画像でXにシェアする ↗</button>
       <button class="undo-btn" id="undoBtnResult" onclick="undo()" disabled>↩ 一つ前の対決に戻る</button>
+    </div>
+  </div>
+
+  <div class="result-screen tie-screen" id="tieScreen">
+    <div class="result-header">
+      <div class="header-badge">診断結果</div>
+      <div class="result-title">全員尊すぎて決められなかった…！</div>
+      <div class="result-subtitle">あなたは全方位担当のガチ恋勢でした</div>
+    </div>
+
+    <div class="tie-emoji">😭💕😭</div>
+
+    <div class="action-btns">
+      <button class="restart-btn" onclick="restart()">もう一度挑戦する</button>
+      <button class="undo-btn" id="undoBtnTie" onclick="undo()" disabled>↩ 一つ前の対決に戻る</button>
     </div>
   </div>
 
@@ -611,7 +638,7 @@ function initGame() {
 
 function showNext() {
   if (currentIdx >= comparisons.length) {
-    showResult();
+    tryConclude();
     return;
   }
   const [a, b] = comparisons[currentIdx];
@@ -669,6 +696,60 @@ function advance() {
   showNext();
 }
 
+// 通常の対決リストを使い切った時点で9位の境界が同点の場合、安易に確定させず追加対決を挟む
+function tryConclude() {
+  const totalScore = idols.reduce((sum, _, i) => sum + (scores[i] || 0), 0);
+  if (totalScore === 0) {
+    showTieResult();
+    return;
+  }
+
+  const ambiguous = findAmbiguousTie();
+  if (ambiguous) {
+    if (ambiguous.unaskedPairs.length > 0) {
+      comparisons = comparisons.concat(ambiguous.unaskedPairs);
+      totalComparisons = comparisons.length;
+      showNext();
+      return;
+    }
+    // 同点メンバー同士の対決をやり尽くしてもなお決着がつかない場合は、
+    // 決着がついたところまでを結果として出す（1人も決まっていなければ特別演出）
+    if (ambiguous.countAbove === 0) {
+      showTieResult();
+      return;
+    }
+    const sortedIdx = Object.keys(scores).map(Number).sort((a, b) => scores[b] - scores[a]);
+    const decidedIdx = sortedIdx.slice(0, ambiguous.countAbove);
+    showResult(decidedIdx);
+    return;
+  }
+
+  showResult();
+}
+
+// 9位とその次点が同点で、9位までの顔ぶれを一意に決められないかどうかを調べる
+function findAmbiguousTie() {
+  const sortedIdx = Object.keys(scores).map(Number).sort((a, b) => scores[b] - scores[a]);
+  const boundaryScore = scores[sortedIdx[8]];
+  const countAbove = sortedIdx.filter(i => scores[i] > boundaryScore).length;
+  const tied = sortedIdx.filter(i => scores[i] === boundaryScore);
+  const slotsNeeded = 9 - countAbove;
+
+  if (tied.length <= slotsNeeded) return null;
+
+  const askedKeys = new Set(comparisons.map(([a, b]) => a < b ? `${a}-${b}` : `${b}-${a}`));
+  const unaskedPairs = [];
+  for (let x = 0; x < tied.length; x++) {
+    for (let y = x + 1; y < tied.length; y++) {
+      const a = tied[x], b = tied[y];
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (!askedKeys.has(key)) unaskedPairs.push([a, b]);
+    }
+  }
+  shuffle(unaskedPairs);
+  return { tied, unaskedPairs, countAbove };
+}
+
 function undo() {
   if (history.length === 0) return;
   if (pendingAdvanceTimer) {
@@ -681,6 +762,7 @@ function undo() {
   updateUndoButtons();
 
   document.getElementById("resultScreen").classList.remove("active");
+  document.getElementById("tieScreen").classList.remove("active");
   document.getElementById("battleScreen").classList.remove("hidden");
   showNext();
 }
@@ -689,6 +771,7 @@ function updateUndoButtons() {
   const disabled = history.length === 0;
   document.getElementById("undoBtn").disabled = disabled;
   document.getElementById("undoBtnResult").disabled = disabled;
+  document.getElementById("undoBtnTie").disabled = disabled;
 }
 
 // Top9に入れない/入れる対象がもう確定し、残りの対決を見ても結果が変わらない場合に早期終了する
@@ -727,15 +810,29 @@ function spawnHeart(e) {
   setTimeout(() => h.remove(), 800);
 }
 
-function showResult() {
+function showResult(decidedIdx) {
+  const totalScore = idols.reduce((sum, _, i) => sum + (scores[i] || 0), 0);
+  if (totalScore === 0) {
+    showTieResult();
+    return;
+  }
+
   document.getElementById("battleScreen").classList.add("hidden");
   document.getElementById("resultScreen").classList.add("active");
 
-  const ranked = Object.entries(scores)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 9)
-    .map(([i, score]) => ({ ...idols[parseInt(i)], score }));
+  const ranked = decidedIdx
+    ? decidedIdx.map(i => ({ ...idols[i], score: scores[i] }))
+    : Object.entries(scores)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 9)
+        .map(([i, score]) => ({ ...idols[parseInt(i)], score }));
   lastRanked = ranked;
+
+  const count = ranked.length;
+  document.getElementById("resultTitle").textContent = `あなたの好き顔${count}選 ✦`;
+  document.getElementById("resultSubtitle").textContent = count === 9
+    ? "対決を勝ち抜いたメンバーたちです"
+    : `同率で決着がつかなかったため、決まった${count}名だけの結果です`;
 
   const medals = ["🥇", "🥈", "🥉"];
   const grid = document.getElementById("nineGrid");
@@ -760,8 +857,17 @@ function showResult() {
   document.getElementById("stageLabel").textContent = "🎉 結果発表";
 }
 
+function showTieResult() {
+  document.getElementById("battleScreen").classList.add("hidden");
+  document.getElementById("tieScreen").classList.add("active");
+  document.getElementById("progressFill").style.width = "100%";
+  document.getElementById("progressLabel").textContent = "診断完了！";
+  document.getElementById("stageLabel").textContent = "🎉 結果発表";
+}
+
 function restart() {
   document.getElementById("resultScreen").classList.remove("active");
+  document.getElementById("tieScreen").classList.remove("active");
   document.getElementById("battleScreen").classList.add("hidden");
   document.getElementById("selectScreen").classList.remove("hidden");
 }
