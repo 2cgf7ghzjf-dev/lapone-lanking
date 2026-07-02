@@ -92,17 +92,17 @@
     /* Group filter */
     .group-filter {
       display: flex;
-      flex-direction: column;
-      gap: 0.55rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
       margin-bottom: 1rem;
     }
     .filter-btn {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      text-align: left;
-      padding: 12px 16px;
-      border-radius: 12px;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 999px;
       border: 1px solid var(--border-strong);
       background: var(--surface-2);
       color: var(--text-primary);
@@ -115,14 +115,14 @@
     .filter-btn::before {
       content: "";
       flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      border-radius: 6px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
       border: 2px solid var(--border-strong);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
+      font-size: 10px;
       font-weight: 700;
       color: white;
       transition: all 0.15s;
@@ -140,14 +140,6 @@
     }
 
     .select-screen.hidden { display: none; }
-
-    .intro-text {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.8;
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
 
     .how-to {
       display: flex;
@@ -222,6 +214,9 @@
     .start-btn {
       display: block;
       width: 100%;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
       padding: 13px;
       background: var(--orange);
       color: white;
@@ -365,6 +360,9 @@
     .both-like-btn {
       display: block;
       width: 100%;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
       padding: 13px;
       background: var(--orange);
       color: white;
@@ -383,6 +381,9 @@
     .skip-btn {
       display: block;
       width: 100%;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
       padding: 11px;
       margin-bottom: 0.5rem;
       background: transparent;
@@ -399,6 +400,9 @@
     .undo-btn {
       display: block;
       width: 100%;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
       padding: 10px;
       background: transparent;
       border: 1px solid var(--border-strong);
@@ -478,36 +482,32 @@
       75% { transform: scale(1.08) rotate(4deg); }
     }
 
-    /* Result frame: 16:9 に収まる結果ビジュアル */
+    /* Result frame: 正方形の9マスで写真を大きく見せる */
     .result-frame {
       width: 100%;
       max-width: 480px;
-      aspect-ratio: 16 / 9;
       margin: 0 auto 0.75rem;
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 10px 12px 8px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      padding: 14px 14px 12px;
     }
-    .result-frame-header { text-align: center; flex-shrink: 0; margin-bottom: 6px; }
+    .result-frame-header { text-align: center; margin-bottom: 10px; }
     .result-frame-badge {
       font-size: 10px;
       font-weight: 700;
       color: var(--orange);
       letter-spacing: 0.08em;
     }
-    .result-frame-title { font-size: 15px; font-weight: 800; color: var(--text-primary); }
+    .result-frame-title { font-size: 17px; font-weight: 800; color: var(--text-primary); }
 
     .nine-grid {
-      flex: 1;
-      min-height: 0;
+      width: 100%;
+      aspect-ratio: 1 / 1;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(3, 1fr);
-      gap: 5px;
+      gap: 6px;
     }
     .nine-cell {
       position: relative;
@@ -539,29 +539,29 @@
     }
     .nine-rank-badge {
       position: absolute;
-      top: 3px;
-      left: 3px;
-      font-size: 7px;
+      top: 5px;
+      left: 5px;
+      font-size: 9px;
       font-weight: 700;
       color: #fff;
       background: rgba(0,0,0,0.55);
-      padding: 1px 4px;
+      padding: 2px 6px;
       border-radius: 999px;
     }
     .nine-caption {
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      padding: 8px 5px 3px;
+      padding: 12px 8px 6px;
       background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0));
     }
-    .nine-name { font-size: 9px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); line-height: 1.2; }
-    .nine-group { font-size: 7px; color: rgba(255,255,255,0.85); }
+    .nine-name { font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); line-height: 1.2; }
+    .nine-group { font-size: 10px; color: rgba(255,255,255,0.85); }
     .nine-profile-btn {
       position: absolute;
-      top: 3px;
-      right: 3px;
-      width: 18px;
-      height: 18px;
+      top: 5px;
+      right: 5px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       background: rgba(255,255,255,0.9);
       color: var(--orange);
@@ -569,7 +569,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       padding: 0;
@@ -579,14 +579,14 @@
 
     .action-btns { display: flex; flex-direction: column; gap: 0.6rem; }
     .restart-btn {
-      display: block; width: 100%; padding: 13px;
+      display: block; width: 100%; max-width: 360px; margin-left: auto; margin-right: auto; padding: 13px;
       background: var(--orange); color: white; border: none;
       border-radius: 999px; font-size: 15px; font-weight: 600;
       font-family: inherit; cursor: pointer; transition: opacity 0.15s;
     }
     .restart-btn:hover { opacity: 0.88; }
     .share-btn {
-      display: block; width: 100%; padding: 12px;
+      display: block; width: 100%; max-width: 360px; margin-left: auto; margin-right: auto; padding: 12px;
       background: transparent; color: var(--orange);
       border: 1px solid var(--orange); border-radius: 999px;
       font-size: 14px; font-weight: 600; font-family: inherit;
@@ -605,11 +605,11 @@
       .choose-row { gap: 0.5rem; }
       .choose-arrow-btn { padding: 12px 6px; font-size: 13px; }
       .both-like-btn, .skip-btn { padding: 11px; font-size: 12px; }
-      .filter-btn { padding: 10px 16px; font-size: 13px; }
+      .filter-btn { padding: 8px 14px; font-size: 13px; }
       .start-btn, .restart-btn { padding: 15px; }
 
-      .result-frame { padding: 8px 8px 6px; }
-      .nine-grid { gap: 3px; }
+      .result-frame { padding: 10px 10px 8px; }
+      .nine-grid { gap: 4px; }
     }
 
     @media (max-width: 360px) {
@@ -630,10 +630,6 @@
   </div>
 
   <div class="select-screen" id="selectScreen">
-    <p class="intro-text">
-      JO1・INI・DXTEEN・KO1KEYZ——好きなグループを選ぶと、1対1の対決を勝ち抜いたメンバーだけが並ぶ「あなたの好き顔ランキング」が完成します。難しく考えず、直感でどんどん選んでいくのがおすすめです。
-    </p>
-
     <div class="how-to">
       <div class="how-to-step">
         <span class="how-to-num">1</span>
@@ -1188,10 +1184,18 @@ async function tweetResult() {
   const originalLabel = shareBtn.textContent;
   shareBtn.textContent = "画像を作成中…";
 
+  // ファイル共有に対応する端末ではXへのタブは開かず navigator.share に任せる。
+  // それ以外は画像生成(await)を挟むとユーザー操作の直後ではなくなり
+  // ポップアップブロッカーに阻まれるため、クリック直後の同期処理内でタブだけ先に開いておく。
+  const supportsFileShare = !!(navigator.canShare &&
+    navigator.canShare({ files: [new File([""], "check.png", { type: "image/png" })] }));
+  const twitterWindow = supportsFileShare ? null : window.open("", "_blank");
+
   let blob;
   try {
     blob = await buildShareImage(lastRanked);
   } catch (err) {
+    if (twitterWindow) twitterWindow.close();
     alert("画像の生成に失敗しました。file:// で直接開いている場合、ローカルサーバー経由で開くと解決することがあります。");
     shareBtn.disabled = false;
     shareBtn.textContent = originalLabel;
@@ -1227,7 +1231,12 @@ async function tweetResult() {
 
   const tweetParams = new URLSearchParams({ text });
   if (SHARE_URL) tweetParams.set("url", SHARE_URL);
-  window.open(`https://twitter.com/intent/tweet?${tweetParams.toString()}`, "_blank");
+  const tweetUrl = `https://twitter.com/intent/tweet?${tweetParams.toString()}`;
+  if (twitterWindow) {
+    twitterWindow.location.href = tweetUrl;
+  } else {
+    window.open(tweetUrl, "_blank");
+  }
   alert("画像をダウンロードしました。Xの投稿画面に保存した画像を添付してください。");
 
   shareBtn.disabled = false;
