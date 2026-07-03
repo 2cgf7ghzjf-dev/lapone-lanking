@@ -780,7 +780,7 @@
     </div>
 
     <button class="both-like-btn" onclick="skip()">どっちも好き</button>
-    <button class="skip-btn" onclick="skip()">わからない</button>
+    <button class="skip-btn" onclick="excludeAndSkip()">わからない</button>
     <button class="undo-btn" id="undoBtn" onclick="undo()" disabled>↩ ひとつ戻る</button>
   </div>
 
@@ -873,6 +873,7 @@ let currentIdx = 0;
 let totalComparisons = 0;
 let selectedGroups = new Set();
 let compareMode = "quick";
+let excluded = new Set();
 let history = [];
 let pendingAdvanceTimer = null;
 let lastRanked = [];
@@ -923,6 +924,7 @@ function initGame() {
   currentIdx = 0;
   totalComparisons = comparisons.length;
   history = [];
+  excluded = new Set();
   updateUndoButtons();
 
   document.getElementById("resultScreen").classList.remove("active");
@@ -983,9 +985,27 @@ function skip() {
   advance();
 }
 
+// 「わからない」は対象の2人を選考対象から除外し、以後の対決にも出さない
+function excludeAndSkip() {
+  const [a, b] = comparisons[currentIdx];
+  excluded.add(a);
+  excluded.add(b);
+
+  const rest = comparisons.slice(currentIdx);
+  const removedPairs = rest.filter(([x, y]) => x === a || x === b || y === a || y === b);
+  const keptPairs = rest.filter(([x, y]) => x !== a && x !== b && y !== a && y !== b);
+  comparisons = comparisons.slice(0, currentIdx).concat(keptPairs);
+  totalComparisons = comparisons.length;
+
+  history.push({ idx: currentIdx, winner: null, excludedPair: [a, b], removedPairs });
+  updateUndoButtons();
+  advance();
+}
+
 function advance() {
-  if (compareMode !== "full" && currentIdx < comparisons.length && isTop9Locked()) {
-    showResult();
+  const boundary = compareMode === "full" ? 20 : 9;
+  if (currentIdx < comparisons.length && isTopNLocked(boundary)) {
+    finalizeResult();
     return;
   }
   showNext();
@@ -1013,18 +1033,53 @@ function tryConclude() {
       showTieResult();
       return;
     }
-    const ranked = idols.map((_, i) => i).sort(compareIdols);
+    const ranked = activeIndices().sort(compareIdols);
     const decidedIdx = ranked.slice(0, ambiguous.countAbove);
-    showResult(decidedIdx);
+    finalizeResult(decidedIdx);
     return;
   }
 
-  showResult();
+  finalizeResult();
+}
+
+function activeIndices() {
+  return idols.map((_, i) => i).filter(i => !excluded.has(i));
+}
+
+// 確定前に上位3人同士が直接対決済みかを確認し、足りなければ対決を割り込ませる
+function ensureTopConfirmed(topCount) {
+  const ranked = activeIndices().sort(compareIdols);
+  if (ranked.length < topCount) return false;
+  const top = ranked.slice(0, topCount);
+
+  const askedKeys = new Set(comparisons.slice(0, currentIdx).map(([a, b]) => a < b ? `${a}-${b}` : `${b}-${a}`));
+  const missingPairs = [];
+  for (let x = 0; x < top.length; x++) {
+    for (let y = x + 1; y < top.length; y++) {
+      const a = top[x], b = top[y];
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (!askedKeys.has(key)) missingPairs.push([a, b]);
+    }
+  }
+  if (missingPairs.length === 0) return false;
+
+  shuffle(missingPairs);
+  comparisons = comparisons.slice(0, currentIdx).concat(missingPairs, comparisons.slice(currentIdx));
+  totalComparisons = comparisons.length;
+  return true;
+}
+
+function finalizeResult(decidedIdx) {
+  if (ensureTopConfirmed(3)) {
+    showNext();
+    return;
+  }
+  showResult(decidedIdx);
 }
 
 // 9位とその次点が同率で、9位までの顔ぶれを一意に決められないかどうかを調べる
 function findAmbiguousTie() {
-  const ranked = idols.map((_, i) => i).sort(compareIdols);
+  const ranked = activeIndices().sort(compareIdols);
   const boundaryRate = rate(ranked[8]);
   const countAbove = ranked.filter(i => rate(i) > boundaryRate).length;
   const tied = ranked.filter(i => rate(i) === boundaryRate);
@@ -1057,6 +1112,12 @@ function undo() {
     appearances[last.winner]--;
     appearances[last.loser]--;
   }
+  if (last.excludedPair) {
+    excluded.delete(last.excludedPair[0]);
+    excluded.delete(last.excludedPair[1]);
+    comparisons = comparisons.slice(0, last.idx).concat(last.removedPairs).concat(comparisons.slice(last.idx));
+    totalComparisons = comparisons.length;
+  }
   currentIdx = last.idx;
   updateUndoButtons();
 
@@ -1074,12 +1135,14 @@ function updateUndoButtons() {
   document.getElementById("undoBtnTie").disabled = disabled;
 }
 
-// Top9に入れない/入れる対象がもう確定し、残りの対決を見ても結果が変わらない場合に早期終了する
-function isTop9Locked() {
-  if (idols.length <= 9) return false;
+// 上位boundary人がもう確定し、残りの対決を見ても結果が変わらない場合に早期終了する
+// 簡単モードは9位、ガチ全部比較モードは20位が固まった時点で終了してよい
+function isTopNLocked(boundary) {
+  const active = activeIndices();
+  if (active.length <= boundary) return false;
 
   const remainingCount = {};
-  idols.forEach((_, i) => { remainingCount[i] = 0; });
+  active.forEach(i => { remainingCount[i] = 0; });
   comparisons.slice(currentIdx).forEach(([a, b]) => {
     remainingCount[a]++;
     remainingCount[b]++;
@@ -1095,14 +1158,14 @@ function isTop9Locked() {
     return a === 0 ? 0 : wins[i] / a;
   };
 
-  const ranked = idols.map((_, i) => i).sort(compareIdols);
-  const top9 = ranked.slice(0, 9);
-  const rest = ranked.slice(9);
+  const ranked = active.slice().sort(compareIdols);
+  const topN = ranked.slice(0, boundary);
+  const rest = ranked.slice(boundary);
 
-  const minTop9WorstRate = Math.min(...top9.map(worstRate));
+  const minTopNWorstRate = Math.min(...topN.map(worstRate));
   const maxRestBestRate = Math.max(...rest.map(bestRate));
 
-  return maxRestBestRate < minTop9WorstRate;
+  return maxRestBestRate < minTopNWorstRate;
 }
 
 function spawnHeart(e) {
@@ -1128,7 +1191,7 @@ function showResult(decidedIdx) {
   document.getElementById("battleScreen").classList.add("hidden");
   document.getElementById("resultScreen").classList.add("active");
 
-  const idx = decidedIdx || idols.map((_, i) => i).sort(compareIdols).slice(0, 9);
+  const idx = decidedIdx || activeIndices().sort(compareIdols).slice(0, 9);
   const ranked = idx.map(i => ({ ...idols[i], wins: wins[i], appearances: appearances[i] }));
   lastRanked = ranked;
 
@@ -1164,9 +1227,9 @@ function showResult(decidedIdx) {
   const moreList = document.getElementById("moreList");
   moreList.innerHTML = "";
   moreList.classList.add("hidden");
-  if (compareMode === "full" && idols.length > ranked.length) {
+  if (compareMode === "full" && activeIndices().length > ranked.length) {
     const shownIds = new Set(idx);
-    const restIdx = idols.map((_, i) => i).filter(i => !shownIds.has(i)).sort(compareIdols);
+    const restIdx = activeIndices().filter(i => !shownIds.has(i)).sort(compareIdols);
     lastMoreRanked = restIdx.map(i => ({ ...idols[i], wins: wins[i], appearances: appearances[i] }));
     moreBtn.textContent = `もっと見る（残り${lastMoreRanked.length}人）`;
     moreBtn.classList.remove("hidden");
