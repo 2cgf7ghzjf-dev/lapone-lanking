@@ -1319,7 +1319,7 @@ async function tweetResult() {
 
   // navigator.share は files 指定時に url フィールドが共有先アプリ側で無視されることがあるため、
   // リンクは text に直接埋め込んで確実に一緒に共有されるようにする
-  const text = `私の好き顔No.1は${lastRanked[0].name}でした！\n${SHARE_URL}\n#LAPONE好き顔診断`;
+  const text = `私の好き顔No.1は${lastRanked[0].name}でした！\n${SHARE_URL}\n#LAPONE好き顔9選`;
   const file = new File([blob], "lapone-favorite9.png", { type: "image/png" });
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
